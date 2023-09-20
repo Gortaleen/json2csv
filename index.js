@@ -46,7 +46,7 @@ function processSubBranches(objIn) {
                 {
                     jsonObj,
                     "parent": jsonObj.allNodes[child],
-                    "path": path + "\\" + parent.name + "\\" + jsonObj.allNodes[child].name
+                    path
                 });
         });
     } else {
@@ -63,6 +63,20 @@ function processSubBranches(objIn) {
             + "variants" + csvDelim
             + "cumulative variants" + csvDelim
             + "tree" + "\n"
+        );
+
+        fs.appendFileSync(
+            path + "\\" + parent.name + ".csv",
+            "N/A" + csvDelim
+            + parent.subBranches + csvDelim
+            + "N/A" + csvDelim
+            + dblQuote
+            + parent.variants.reduce(
+                (prev, cur, idx) => prev + (idx === 0 ? "" : ",") + cur.variant,
+                "")
+            + dblQuote + csvDelim
+            + "N/A" + csvDelim
+            + parent.name + "\n"
         );
 
         parent.children
@@ -111,10 +125,6 @@ function processChildren(jsonObj, childNodes, parentName) {
             haploName = jsonObj.allNodes[node].name;
             haploCsvPath = "output\\" + parentName + "\\" + haploName + ".csv";
 
-            // if (fs.existsSync(haploCsvPath)) {
-            //     fs.unlinkSync(haploCsvPath);
-            // }
-
             fs.appendFileSync(
                 haploCsvPath,
                 "tMRCA(BCE/CE)" + csvDelim
@@ -148,16 +158,9 @@ function processJSON() {
 
     if (fs.existsSync("output")) {
         fs.rmSync("output", { recursive: true, force: true });
-        fs.mkdirSync("output");
     }
 
-    // if (!fs.existsSync("output")) {
-    //     fs.mkdirSync("output");
-    // }
-
-    // if (fs.existsSync(rootsCsvPath)) {
-    //     fs.unlinkSync(rootsCsvPath);
-    // }
+    fs.mkdirSync("output");
 
     fs.appendFileSync(
         rootsCsvPath,
