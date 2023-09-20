@@ -19,13 +19,11 @@ function processChild(objIn) {
                 fs.appendFileSync(
                     haploCsvPath,
                     "N/A" + csvDelim
-                    + "N/A" + csvDelim
-                    + "N/A" + csvDelim
-                    + dblQuote
-                    + jsonObj.allNodes[child].variants.reduce(
+                    + (jsonObj.allNodes[child].kitsCount || 0) + csvDelim
+                    + jsonObj.allNodes[child]?.surnames + csvDelim
+                    + dblQuote + jsonObj.allNodes[child].variants.reduce(
                         (prev, cur, idx) => prev + (idx === 0 ? "" : ",") + cur.variant,
-                        "")
-                    + dblQuote + csvDelim
+                        "") + dblQuote + csvDelim
                     + "N/A" + csvDelim
                     + jsonObj.allNodes[child].name + "\n"
                 );
@@ -59,7 +57,7 @@ function processSubBranches(objIn) {
             path + "\\" + parent.name + ".csv",
             "tMRCA(BCE/CE)" + csvDelim
             + "kits" + csvDelim
-            + "root" + csvDelim
+            + "surnames" + csvDelim
             + "variants" + csvDelim
             + "cumulative variants" + csvDelim
             + "tree" + "\n"
@@ -68,13 +66,11 @@ function processSubBranches(objIn) {
         fs.appendFileSync(
             path + "\\" + parent.name + ".csv",
             "N/A" + csvDelim
-            + parent.subBranches + csvDelim
-            + "N/A" + csvDelim
-            + dblQuote
-            + parent.variants.reduce(
+            + (parent.kitsCount || 0) + csvDelim
+            + parent?.surnames + csvDelim
+            + dblQuote + parent.variants.reduce(
                 (prev, cur, idx) => prev + (idx === 0 ? "" : ",") + cur.variant,
-                "")
-            + dblQuote + csvDelim
+                "") + dblQuote + csvDelim
             + "N/A" + csvDelim
             + parent.name + "\n"
         );
@@ -82,19 +78,7 @@ function processSubBranches(objIn) {
         parent.children
             ?.filter(child => String(child).match(/\d+/))
             .forEach(child => {
-                fs.appendFileSync(
-                    path + "\\" + parent.name + ".csv",
-                    "N/A" + csvDelim
-                    + jsonObj.allNodes[child].subBranches + csvDelim
-                    + "N/A" + csvDelim
-                    + dblQuote
-                    + jsonObj.allNodes[child].variants.reduce(
-                        (prev, cur, idx) => prev + (idx === 0 ? "" : ",") + cur.variant,
-                        "")
-                    + dblQuote + csvDelim
-                    + "N/A" + csvDelim
-                    + jsonObj.allNodes[child].name + "\n"
-                );
+                processChild({ jsonObj, haploCsvPath: path + "\\" + parent.name + ".csv", child });
             });
 
         return;
