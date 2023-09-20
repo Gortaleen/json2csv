@@ -34,7 +34,7 @@ function processChild(objIn) {
     const haploCsvPath = objIn.haploCsvPath;
     const child = objIn.child;
 
-    if (jsonObj.allNodes[child]?.children === undefined) {
+    if (!jsonObj.allNodes[child].children) {
         return;
     } else {
         jsonObj.allNodes[child]?.children
@@ -91,7 +91,7 @@ function processSubBranches(objIn) {
     return;
 }
 
-function processRoots(jsonObj, childNodes, rootName) {
+function processRoot(jsonObj, childNodes, rootName) {
     const csvDelim = String.fromCharCode(44);
     const rootPath = "output\\" + rootName + "\\";
     let haploName = "";
@@ -162,7 +162,7 @@ function processJSON() {
         + "tree" + "\n"
     );
 
-    Object.keys(jsonObj.roots).forEach((key, idx) => {
+    Object.keys(jsonObj.roots).forEach((root, idx) => {
 
         // skip redundant entry
         if (idx === 0) { return; }
@@ -172,20 +172,20 @@ function processJSON() {
             // tMRCA(BCE/CE)
             "N/A" + csvDelim
             // kits
-            + jsonObj.roots[key].subBranches + csvDelim
+            + jsonObj.roots[root].subBranches + csvDelim
             // root
             + "N/A" + csvDelim
             // variants
-            + dblQuote + jsonObj.roots[key].variants.reduce(
+            + dblQuote + jsonObj.roots[root].variants.reduce(
                 (prev, cur, idx) => prev + (idx === 0 ? "" : ",") + cur.variant,
                 "") + dblQuote + csvDelim
             // cumulative variants
-            + jsonObj.roots[key].variants.length + csvDelim
+            + jsonObj.roots[root].variants.length + csvDelim
             // tree
-            + jsonObj.roots[key].name + "\n"
+            + jsonObj.roots[root].name + "\n"
         );
 
-        processRoots(jsonObj, jsonObj.roots[key].children, jsonObj.roots[key].name);
+        processRoot(jsonObj, jsonObj.roots[root].children, jsonObj.roots[root].name);
     });
 
     console.log("done");
