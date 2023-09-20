@@ -1,32 +1,48 @@
 // const createCsvWriter = require("csv-writer").createObjectCsvWriter;
 const fs = require("fs");
 
-function processChild(objIn) {
+function addCsvRow(objIn) {
     const jsonObj = objIn.jsonObj;
     const haploCsvPath = objIn.haploCsvPath;
     const child = objIn.child;
     const csvDelim = String.fromCharCode(44);
     const dblQuote = String.fromCharCode(34);
 
-    if (jsonObj.allNodes[child].children === undefined) {
+    fs.appendFileSync(
+        haploCsvPath,
+        // tMRCA(BCE/CE)
+        "N/A" + csvDelim
+        // kits
+        + (jsonObj.allNodes[child].kitsCount || 0) + csvDelim
+        // surnames
+        + dblQuote + jsonObj.allNodes[child]?.surnames
+            ?.reduce(
+                (prev, cur, idx) => prev + (idx === 0 ? "" : csvDelim) + cur?.surname,
+                "") + dblQuote + csvDelim
+        // variants
+        + dblQuote + jsonObj.allNodes[child].variants.reduce(
+            (prev, cur, idx) => prev + (idx === 0 ? "" : ",") + cur.variant,
+            "") + dblQuote + csvDelim
+        // cumulative variants
+        + jsonObj.allNodes[child].variants.length + csvDelim
+        // tree
+        + jsonObj.allNodes[child].name + "\n"
+    );
+}
+
+function processChild(objIn) {
+    const jsonObj = objIn.jsonObj;
+    const haploCsvPath = objIn.haploCsvPath;
+    const child = objIn.child;
+
+    if (jsonObj.allNodes[child]?.children === undefined) {
         return;
     } else {
-        jsonObj.allNodes[child].children
+        jsonObj.allNodes[child]?.children
             .filter(child => typeof child === "number")
             .forEach(child => {
                 processChild({ jsonObj, haploCsvPath, child });
-
-                fs.appendFileSync(
-                    haploCsvPath,
-                    "N/A" + csvDelim
-                    + (jsonObj.allNodes[child].kitsCount || 0) + csvDelim
-                    + jsonObj.allNodes[child]?.surnames + csvDelim
-                    + dblQuote + jsonObj.allNodes[child].variants.reduce(
-                        (prev, cur, idx) => prev + (idx === 0 ? "" : ",") + cur.variant,
-                        "") + dblQuote + csvDelim
-                    + "N/A" + csvDelim
-                    + jsonObj.allNodes[child].name + "\n"
-                );
+                addCsvRow({ jsonObj, haploCsvPath, child });
             });
     }
 }
@@ -34,86 +50,77 @@ function processChild(objIn) {
 function processSubBranches(objIn) {
     const jsonObj = objIn.jsonObj;
     const parent = objIn.parent;
-    const path = objIn.path;
-    const csvDelim = String.fromCharCode(44);
-    const dblQuote = String.fromCharCode(34);
+    const rootPath = objIn.rootPath;
 
-    if (parent?.subBranches > 1000) {
+    const haploName = parent.name;
+    const haploCsvPath = rootPath + haploName + ".csv";
+    const csvDelim = String.fromCharCode(44);
+
+    if (parent?.subBranches <= 1000) {
+        // print to file
+        fs.appendFileSync(
+            haploCsvPath,
+            "tMRCA(BCE/CE)" + csvDelim
+            + "kits" + csvDelim
+            + "names" + csvDelim
+            + "variants" + csvDelim
+            + "cumulative variants" + csvDelim
+            + "tree" + "\n"
+        );
+        addCsvRow({ jsonObj, haploCsvPath, child: parent.haplogroupId });
+        parent.children
+            ?.filter((val) => val)
+            .forEach((child) => processChild(
+                {
+                    jsonObj,
+                    haploCsvPath,
+                    child
+                }
+            ));
+    } else if (parent.subBranches > 1000) {
         parent.children.forEach(child => {
             processSubBranches(
                 {
                     jsonObj,
                     "parent": jsonObj.allNodes[child],
-                    path
-                });
+                    rootPath
+                }
+            );
         });
-    } else {
-
-        if (!fs.existsSync(path)) {
-            fs.mkdirSync(path, { recursive: true });
-        }
-
-        fs.appendFileSync(
-            path + "\\" + parent.name + ".csv",
-            "tMRCA(BCE/CE)" + csvDelim
-            + "kits" + csvDelim
-            + "surnames" + csvDelim
-            + "variants" + csvDelim
-            + "cumulative variants" + csvDelim
-            + "tree" + "\n"
-        );
-
-        fs.appendFileSync(
-            path + "\\" + parent.name + ".csv",
-            "N/A" + csvDelim
-            + (parent.kitsCount || 0) + csvDelim
-            + parent?.surnames + csvDelim
-            + dblQuote + parent.variants.reduce(
-                (prev, cur, idx) => prev + (idx === 0 ? "" : ",") + cur.variant,
-                "") + dblQuote + csvDelim
-            + "N/A" + csvDelim
-            + parent.name + "\n"
-        );
-
-        parent.children
-            ?.filter(child => String(child).match(/\d+/))
-            .forEach(child => {
-                processChild({ jsonObj, haploCsvPath: path + "\\" + parent.name + ".csv", child });
-            });
-
-        return;
     }
+
+    return;
 }
 
-function processChildren(jsonObj, childNodes, parentName) {
+function processRoots(jsonObj, childNodes, rootName) {
     const csvDelim = String.fromCharCode(44);
+    const rootPath = "output\\" + rootName + "\\";
     let haploName = "";
     let haploCsvPath = "";
 
-    if (!fs.existsSync("output\\" + parentName)) {
-        fs.mkdirSync("output\\" + parentName);
+    if (!fs.existsSync(rootPath)) {
+        fs.mkdirSync(rootPath);
     }
 
     childNodes.forEach((node) => {
 
         if (jsonObj.allNodes[node].subBranches > 1000) {
-            // recurse
-            processSubBranches(
-                {
-                    jsonObj,
-                    parent: jsonObj.allNodes[node],
-                    path: "output\\" + parentName + "\\" + jsonObj.allNodes[node].name
-                }
-            );
+            // for each node with > 1000 subbranches
+            // 1. recurse through descendants for each subbranch
+            //    when a descendant has <= 1000 subranches
+            //    print its children to a csv named for the root + current branch name
+            processSubBranches({ jsonObj, parent: jsonObj.allNodes[node], rootPath });
         } else {
+            // for each child of a root with <= 1000 subbranches
+            // print its children to a csv named for the root + current branch name
             haploName = jsonObj.allNodes[node].name;
-            haploCsvPath = "output\\" + parentName + "\\" + haploName + ".csv";
+            haploCsvPath = rootPath + haploName + ".csv";
 
             fs.appendFileSync(
                 haploCsvPath,
                 "tMRCA(BCE/CE)" + csvDelim
                 + "kits" + csvDelim
-                + "root" + csvDelim
+                + "names" + csvDelim
                 + "variants" + csvDelim
                 + "cumulative variants" + csvDelim
                 + "tree" + "\n"
@@ -150,28 +157,36 @@ function processJSON() {
         rootsCsvPath,
         "tMRCA(BCE/CE)" + csvDelim
         + "kits" + csvDelim
-        + "root" + csvDelim
+        + "surnames" + csvDelim
         + "variants" + csvDelim
         + "cumulative variants" + csvDelim
         + "tree" + "\n"
     );
 
     Object.keys(jsonObj.roots).forEach((key, idx) => {
-        if (idx === 0) { return; } // skip redundant entry
+
+        // skip redundant entry
+        if (idx === 0) { return; }
+
         fs.appendFileSync(
             rootsCsvPath,
+            // tMRCA(BCE/CE)
             "N/A" + csvDelim
+            // kits
             + jsonObj.roots[key].subBranches + csvDelim
+            // root
             + "N/A" + csvDelim
-            + dblQuote
-            + jsonObj.roots[key].variants.reduce(
+            // variants
+            + dblQuote + jsonObj.roots[key].variants.reduce(
                 (prev, cur, idx) => prev + (idx === 0 ? "" : ",") + cur.variant,
-                "")
-            + dblQuote + csvDelim
-            + "N/A" + csvDelim
+                "") + dblQuote + csvDelim
+            // cumulative variants
+            + jsonObj.roots[key].variants.length + csvDelim
+            // tree
             + jsonObj.roots[key].name + "\n"
         );
-        processChildren(jsonObj, jsonObj.roots[key].children, jsonObj.roots[key].name);
+
+        processRoots(jsonObj, jsonObj.roots[key].children, jsonObj.roots[key].name);
     });
 
     console.log("done");
