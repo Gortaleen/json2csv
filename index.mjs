@@ -1,4 +1,9 @@
-import { appendFileSync, existsSync, mkdirSync, readFileSync, rmSync } from "fs";
+/*jslint white*/
+"use strict";
+
+import {
+    appendFileSync, existsSync, mkdirSync, readFileSync, rmSync
+} from "fs";
 
 function addCsvRow(objIn) {
     const jsonObj = objIn.jsonObj;
@@ -16,7 +21,9 @@ function addCsvRow(objIn) {
         // surnames
         + dblQuote + jsonObj.allNodes[child]?.surnames
             ?.reduce(
-                (prev, cur, idx) => prev + (idx === 0 ? "" : csvDelim) + cur?.surname,
+                (prev, cur, idx) => prev
+                    + (idx === 0 ? "" : csvDelim)
+                    + cur?.surname,
                 "") + dblQuote + csvDelim
         // variants
         + dblQuote + jsonObj.allNodes[child].variants.reduce(
@@ -36,14 +43,14 @@ function processChild(objIn) {
 
     if (!jsonObj.allNodes[child].children) {
         return;
-    } else {
-        jsonObj.allNodes[child]?.children
-            .filter(child => typeof child === "number")
-            .forEach(child => {
-                processChild({ jsonObj, haploCsvPath, child });
-                addCsvRow({ jsonObj, haploCsvPath, child });
-            });
     }
+
+    jsonObj.allNodes[child]?.children
+        .filter((child) => typeof child === "number")
+        .forEach(function (child) {
+            processChild({ child, haploCsvPath, jsonObj });
+            addCsvRow({ child, haploCsvPath, jsonObj });
+        });
 }
 
 function processSubBranches(objIn) {
@@ -66,18 +73,18 @@ function processSubBranches(objIn) {
             + "cumulative variants" + csvDelim
             + "tree" + "\n"
         );
-        addCsvRow({ jsonObj, haploCsvPath, child: parent.haplogroupId });
+        addCsvRow({ child: parent.haplogroupId, haploCsvPath, jsonObj });
         parent.children
             ?.filter((val) => val)
             .forEach((child) => processChild(
                 {
-                    jsonObj,
+                    child,
                     haploCsvPath,
-                    child
+                    jsonObj
                 }
             ));
     } else if (parent.subBranches > 1000) {
-        parent.children.forEach(child => {
+        parent.children.forEach(function (child) {
             processSubBranches(
                 {
                     jsonObj,
@@ -101,17 +108,25 @@ function processRoot(jsonObj, childNodes, rootName) {
         mkdirSync(rootPath);
     }
 
-    childNodes.forEach((node) => {
+    childNodes.forEach(function (node) {
 
         if (jsonObj.allNodes[node].subBranches > 1000) {
             // for each node with > 1000 subbranches
             // 1. recurse through descendants for each subbranch
             //    when a descendant has <= 1000 subranches
-            //    print its children to a csv named for the root + current branch name
-            processSubBranches({ jsonObj, parent: jsonObj.allNodes[node], rootPath });
+            //    print its children to a csv named for the root + current
+            //    branch name.
+            processSubBranches(
+                {
+                    jsonObj,
+                    parent: jsonObj.allNodes[node],
+                    rootPath
+                }
+            );
         } else {
             // for each child of a root with <= 1000 subbranches
-            // print its children to a csv named for the root + current branch name
+            // print its children to a csv named for the root + current branch
+            // name.
             haploName = jsonObj.allNodes[node].name;
             haploCsvPath = rootPath + haploName + ".csv";
 
@@ -129,9 +144,9 @@ function processRoot(jsonObj, childNodes, rootName) {
                 ?.filter((val) => val)
                 .forEach((child) => processChild(
                     {
-                        jsonObj,
+                        child,
                         haploCsvPath,
-                        child
+                        jsonObj
                     }
                 ));
         }
@@ -147,7 +162,7 @@ function processJSON() {
     const dblQuote = String.fromCharCode(34);
 
     if (existsSync("output")) {
-        rmSync("output", { recursive: true, force: true });
+        rmSync("output", { force: true, recursive: true });
     }
 
     mkdirSync("output");
@@ -162,7 +177,7 @@ function processJSON() {
         + "tree" + "\n"
     );
 
-    Object.keys(jsonObj.roots).forEach((root, idx) => {
+    Object.keys(jsonObj.roots).forEach(function (root, idx) {
 
         // skip redundant entry
         if (idx === 0) { return; }
@@ -185,7 +200,11 @@ function processJSON() {
             + jsonObj.roots[root].name + "\n"
         );
 
-        processRoot(jsonObj, jsonObj.roots[root].children, jsonObj.roots[root].name);
+        processRoot(
+            jsonObj,
+            jsonObj.roots[root].children,
+            jsonObj.roots[root].name
+        );
     });
 
     console.log("done");
