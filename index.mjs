@@ -5,6 +5,22 @@ import {
     appendFileSync, existsSync, mkdirSync, readFileSync, rmSync
 } from "fs";
 
+function addCvsHeader(haploCsvPath) {
+    const csvDelim = String.fromCharCode(44);
+
+    appendFileSync(
+        haploCsvPath,
+        "tMRCA(BCE/CE)" + csvDelim
+        + "Kits" + csvDelim
+        + "Surnames" + csvDelim
+        + "Variants" + csvDelim
+        + "Cumulative Variants" + csvDelim
+        + "Tree" + csvDelim
+        + "Big Y count" + "\n"
+    );
+
+}
+
 function addCsvRow(objIn) {
     const jsonObj = objIn.jsonObj;
     const haploCsvPath = objIn.haploCsvPath;
@@ -32,7 +48,9 @@ function addCsvRow(objIn) {
         // cumulative variants
         + jsonObj.allNodes[child].variants.length + csvDelim
         // tree
-        + jsonObj.allNodes[child].name + "\n"
+        + jsonObj.allNodes[child].name + csvDelim
+        // Big Y count
+        + jsonObj.allNodes[child].bigYCount + "\n"
     );
 }
 
@@ -41,15 +59,16 @@ function processChild(objIn) {
     const haploCsvPath = objIn.haploCsvPath;
     const child = objIn.child;
 
+    addCsvRow({ child, haploCsvPath, jsonObj });
+
     if (!jsonObj.allNodes[child].children) {
         return;
     }
 
     jsonObj.allNodes[child]?.children
-        .filter((child) => typeof child === "number")
-        .forEach(function (child) {
-            processChild({ child, haploCsvPath, jsonObj });
-            addCsvRow({ child, haploCsvPath, jsonObj });
+        // .filter((ch1) => typeof ch1 === "number")
+        .forEach(function (ch2) {
+            processChild({ child: ch2, haploCsvPath, jsonObj });
         });
 }
 
@@ -60,29 +79,22 @@ function processSubBranches(objIn) {
 
     const haploName = parent.name;
     const haploCsvPath = rootPath + haploName + ".csv";
-    const csvDelim = String.fromCharCode(44);
 
     if (parent?.subBranches <= 1000) {
         // print to file
-        appendFileSync(
-            haploCsvPath,
-            "tMRCA(BCE/CE)" + csvDelim
-            + "kits" + csvDelim
-            + "names" + csvDelim
-            + "variants" + csvDelim
-            + "cumulative variants" + csvDelim
-            + "tree" + "\n"
-        );
+        addCvsHeader(haploCsvPath);
         addCsvRow({ child: parent.haplogroupId, haploCsvPath, jsonObj });
         parent.children
             ?.filter((val) => val)
-            .forEach((child) => processChild(
-                {
-                    child,
-                    haploCsvPath,
-                    jsonObj
-                }
-            ));
+            .forEach(function (child) {
+                processChild(
+                    {
+                        child,
+                        haploCsvPath,
+                        jsonObj
+                    }
+                );
+            });
     } else if (parent.subBranches > 1000) {
         parent.children.forEach(function (child) {
             processSubBranches(
@@ -129,26 +141,18 @@ function processRoot(jsonObj, childNodes, rootName) {
             // name.
             haploName = jsonObj.allNodes[node].name;
             haploCsvPath = rootPath + haploName + ".csv";
-
-            appendFileSync(
-                haploCsvPath,
-                "tMRCA(BCE/CE)" + csvDelim
-                + "kits" + csvDelim
-                + "names" + csvDelim
-                + "variants" + csvDelim
-                + "cumulative variants" + csvDelim
-                + "tree" + "\n"
-            );
-
+            addCvsHeader(haploCsvPath);
             jsonObj.allNodes[node].children
                 ?.filter((val) => val)
-                .forEach((child) => processChild(
-                    {
-                        child,
-                        haploCsvPath,
-                        jsonObj
-                    }
-                ));
+                .forEach(function (child) {
+                    processChild(
+                        {
+                            child,
+                            haploCsvPath,
+                            jsonObj
+                        }
+                    );
+                });
         }
     });
 }
@@ -166,17 +170,7 @@ function processJSON() {
     }
 
     mkdirSync("output");
-
-    appendFileSync(
-        rootsCsvPath,
-        "tMRCA(BCE/CE)" + csvDelim
-        + "kits" + csvDelim
-        + "surnames" + csvDelim
-        + "variants" + csvDelim
-        + "cumulative variants" + csvDelim
-        + "tree" + "\n"
-    );
-
+    addCvsHeader(rootsCsvPath);
     Object.keys(jsonObj.roots).forEach(function (root, idx) {
 
         // skip redundant entry
@@ -197,7 +191,9 @@ function processJSON() {
             // cumulative variants
             + jsonObj.roots[root].variants.length + csvDelim
             // tree
-            + jsonObj.roots[root].name + "\n"
+            + jsonObj.roots[root].name + csvDelim
+            // Big Y count
+            + jsonObj.roots[root].bigYCount + "\n"
         );
 
         processRoot(
