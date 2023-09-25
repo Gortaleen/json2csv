@@ -111,7 +111,6 @@ function processSubBranches(objIn) {
 }
 
 function processRoot(jsonObj, childNodes, rootName) {
-    const csvDelim = String.fromCharCode(44);
     const rootPath = "output\\" + rootName + "\\";
     let haploName = "";
     let haploCsvPath = "";
